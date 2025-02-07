@@ -9,6 +9,7 @@ import sqlite3
 import os
 import time
 import logging
+from datetime import datetime, timedelta
 
 # 设置日志记录
 logging.basicConfig(filename='training.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -42,7 +43,7 @@ def store_data_to_db(data):
                       (date TEXT, predicted_price REAL)''')
     
     for entry in data:
-        date = pd.to_datetime(entry[0], unit='ms').strftime('%Y-%m-%d %H:%M:%S')  # 转换为字符串格式
+        date = entry[0]  # 保持原始时间戳格式
         predicted_price = float(entry[1])  # 确保为浮点数
         logging.info(f"Inserting into DB: date={date}, predicted_price={predicted_price}")  # 调试信息
         cursor.execute("INSERT INTO predictions (date, predicted_price) VALUES (?, ?)", (date, predicted_price))
@@ -118,8 +119,9 @@ def train_and_predict():
     predicted_next_hour_price = model.predict(last_60_hours)
     predicted_next_hour_price_reshaped = predicted_next_hour_price.reshape(-1, 1)
 
-    # 计算当前日期的下一小时
-    next_hour_date = df.index[train_size + len(test_scaled) - 1] + pd.Timedelta(hours=1)
+    # 计算当前时间的下一小时
+    current_time = datetime.now()
+    next_hour_date = current_time + timedelta(hours=1)
 
     # 确保预测结果有效
     predicted_next_hour_price_final = None
@@ -128,7 +130,7 @@ def train_and_predict():
 
     # 将预测结果存储到数据库
     if predicted_next_hour_price_final is not None:
-        store_data_to_db([(next_hour_date, predicted_next_hour_price_final[0][0])])
+        store_data_to_db([(next_hour_date.strftime('%Y-%m-%d %H:%M:%S'), predicted_next_hour_price_final[0][0])])
 
     # 打印预测结果
     if predicted_next_hour_price_final is not None:
